@@ -3,32 +3,42 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# 1. Get desktop path (cross-platform)
+# ✅ Get Desktop Path
 def get_desktop_path():
     return os.path.join(os.path.expanduser("~"), "Desktop")
 
-# 2. Streamlit App
-st.title("Save CSV to Desktop")
+# ✅ Streamlit App
+st.title("Save Prospect Data to Desktop")
 
-# Input fields
-name = st.text_input("Enter Name")
-email = st.text_input("Enter Email")
-age = st.number_input("Enter Age", min_value=0, max_value=120, step=1)
+# --- Input Fields ---
+name = st.text_input("Name")
+email = st.text_input("Email")
+phone = st.text_input("Phone Number")
+notes = st.text_area("Additional Notes")
 
-# Button to save
-if st.button("Save to Desktop CSV"):
+# --- Button to Save ---
+if st.button("Save to Desktop as CSV"):
     if name and email:
-        # Create dataframe
-        df = pd.DataFrame([[name, email, age]], columns=["Name", "Email", "Age"])
-        
-        # Generate file path
+        # Create DataFrame with a timestamp
+        df = pd.DataFrame([{
+            "Name": name,
+            "Email": email,
+            "Phone": phone,
+            "Notes": notes,
+            "Saved_At": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }])
+
+        # File name with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"user_data_{timestamp}.csv"
+        filename = f"prospect_{timestamp}.csv"
+
+        # Full file path on Desktop
         filepath = os.path.join(get_desktop_path(), filename)
 
-        # Save to desktop
+        # Save to CSV
         df.to_csv(filepath, index=False)
 
-        st.success(f"Saved successfully to Desktop as '{filename}'")
+        st.success(f"✅ Saved successfully to your Desktop as `{filename}`")
+        st.write("📄 File path:", filepath)
     else:
-        st.warning("Please enter both name and email.")
+        st.warning("Please enter at least a Name and Email.")
