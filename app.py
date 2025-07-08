@@ -1,98 +1,79 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import date
 from pathlib import Path
 
-st.set_page_config(page_title="Takaful Prospect App", layout="wide")
+# Global session state for file path
+if "csv_path" not in st.session_state:
+    st.session_state.csv_path = None
 
-# --- Globals ---
-if 'folder_path' not in st.session_state:
-    st.session_state.folder_path = None
+st.set_page_config(page_title="Takaful Prospect Tracker", layout="wide")
 
-# --- 1. DATA SOURCE SELECTION ---
-st.sidebar.header("📁 1. Select Data Folder")
+st.title("📋 Takaful Prospect Tracker")
 
-base_path = Path("C:/Users/JQ547CD/OneDrive - EY/Desktop/Self/D33 Project/APP")
-folder_name = st.sidebar.text_input("Folder name (e.g. July2025)", key="folder_input")
+tab1, tab2, tab3, tab4 = st.tabs(["1️⃣ Data Source", "2️⃣ Data Input", "3️⃣ List of Data", "4️⃣ Dashboard"])
 
-if folder_name:
-    full_path = base_path / folder_name
-    full_path.mkdir(parents=True, exist_ok=True)
-    st.session_state.folder_path = full_path
-    st.sidebar.success(f"Using folder: {full_path}")
-    file_path = full_path / "prospects.csv"
-else:
-    st.sidebar.warning("Enter a folder name to start.")
-
-# Exit if not selected
-if not st.session_state.folder_path:
-    st.stop()
-
-# --- 2. DATA INPUT SECTION ---
-st.header("📝 2. Add or Update Prospect")
-
-with st.form("input_form"):
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        name = st.text_input("Prospect Name")
-        date_met = st.date_input("Date Met")
-    with col2:
-        plan = st.selectbox("Plan Interested", ["Family Takaful", "Medical Card", "Savings", "Retirement", "Others"])
-        price = st.number_input("Plan Price (RM)", min_value=0.0, step=10.0)
-    with col3:
-        status = st.selectbox("Status", ["New", "Follow-up", "Closed", "Rejected"])
-        date_commenced = st.date_input("Date Commenced (optional)", value=None)
-
-    notes = st.text_area("Additional Notes")
-    submitted = st.form_submit_button("💾 Save Prospect")
-
-    if submitted and name:
-        new_row = {
-            "Name": name,
-            "Date Met": date_met,
-            "Plan": plan,
-            "Price": price,
-            "Status": status,
-            "Date Commenced": date_commenced,
-            "Notes": notes,
-            "Timestamp": datetime.now()
-        }
-
-        if file_path.exists():
-            df = pd.read_csv(file_path)
-            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+with tab1:
+    st.subheader("📂 Choose Folder to Store Data")
+    folder_path = st.text_input("Enter folder path (e.g., C:/Users/...):")
+    if st.button("Set Folder"):
+        folder = Path(folder_path)
+        if folder.exists() and folder.is_dir():
+            csv_file = folder / "prospect_data.csv"
+            if not csv_file.exists():
+                df = pd.DataFrame(columns=["Name", "Meet Date", "Plan", "Plan Price", "Commenced Date"])
+                df.to_csv(csv_file, index=False)
+            st.session_state.csv_path = str(csv_file)
+            st.success(f"CSV will be stored at: {csv_file}")
         else:
-            df = pd.DataFrame([new_row])
+            st.error("Invalid folder. Please check the path.")
 
-        df.to_csv(file_path, index=False)
-        st.success("Prospect saved!")
+with tab2:
+    st.subheader("➕ Add New Prospect")
 
-# --- 3. VIEW EXISTING DATA ---
-st.header("📋 3. List of Prospects")
+    if not st.session_state.csv_path:
+        st.warning("Please set a valid data source in Tab 1.")
+    else:
+        name = st.text_input("Prospect Name")
+        meet_date = st.date_input("Date Met", date.today())
+        plan = st.selectbox("Plan", ["Basic", "Savings", "Education", "Critical Illness", "Retirement"])
+        price = st.number_input("Plan Price (RM)", min_value=0.0)
+        commenced_date = st.date_input("Date Commenced")
 
-if file_path.exists():
-    df = pd.read_csv(file_path, parse_dates=["Date Met", "Date Commenced", "Timestamp"])
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("No data yet. Add your first prospect!")
+        if st.button("Add Prospect"):
+            new_data = pd.DataFrame([{
+                "Name": name,
+                "Meet Date": meet_date,
+                "Plan": plan,
+                "Plan Price": price,
+                "Commenced Date": commenced_date
+            }])
+            df = pd.read_csv(st.session_state.csv_path)
+            df = pd.concat([df, new_data], ignore_index=True)
+            df.to_csv(st.session_state.csv_path, index=False)
+            st.success("✅ Prospect added!")
 
-# --- 4. DASHBOARD ---
-st.header("📊 4. Dashboard Summary")
+with tab3:
+    st.subheader("📄 List of Prospects")
 
-if file_path.exists() and not df.empty:
-    col1, col2, col3 = st.columns(3)
+    if not st.session_state.csv_path:
+        st.warning("Please set a valid data source in Tab 1.")
+    else:
+        df = pd.read_csv(st.session_state.csv_path)
+        st.dataframe(df, use_container_width=True)
 
-    with col1:
-        st.metric("Total Prospects", len(df))
-    with col2:
-        st.metric("Expected Income (RM)", f"{df['Price'].sum():,.2f}")
-    with col3:
-        closed = df[df["Status"] == "Closed"]
-        st.metric("Closed Deals", len(closed))
+with tab4:
+    st.subheader("📊 Dashboard")
 
-    st.subheader("Prospects by Plan")
-    st.bar_chart(df["Plan"].value_counts())
+    if not st.session_state.csv_path:
+        st.warning("Please set a valid data source in Tab 1.")
+    else:
+        df = pd.read_csv(st.session_state.csv_path)
 
-    st.subheader("Status Breakdown")
-    st.bar_chart(df["Status"].value_counts())
+        if df.empty:
+            st.info("No data to display.")
+        else:
+            st.metric("Total Prospects", len(df))
+            st.metric("Total Value (RM)", df["Plan Price"].sum())
+            st.bar_chart(df["Plan"].value_counts())
