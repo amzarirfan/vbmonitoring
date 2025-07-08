@@ -1,53 +1,42 @@
 import streamlit as st
 import pandas as pd
-import os
-from datetime import datetime
 
-# === TITLE ===
-st.title("📘 Vocabulary Saver")
+st.title("Prospect Tracker - Your Personal File")
 
-# === SESSION INITIALIZATION ===
-if "wordlist_unique" not in st.session_state:
-    st.session_state.wordlist_unique = []
-
-# === INPUT: Add New Word ===
-new_word = st.text_input("Add a word:")
-if st.button("Add to list") and new_word:
-    if new_word.lower() not in [w.lower() for w in st.session_state.wordlist_unique]:
-        st.session_state.wordlist_unique.append(new_word)
-        st.success(f"Added: {new_word}")
-    else:
-        st.warning("⚠️ Word already in list.")
-
-# === DISPLAY: Word List ===
-if st.session_state.wordlist_unique:
-    st.subheader("📝 Current Word List")
-    df = pd.DataFrame(st.session_state.wordlist_unique, columns=["words"])
-    st.dataframe(df)
-
-    # === DOWNLOAD BUTTON ===
-    output_csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Download CSV",
-        data=output_csv,
-        file_name="vocabulary.csv",
-        mime="text/csv"
-    )
-
-    # === SAVE TO SPECIFIC FOLDER ===
-    if st.button("💾 Save CSV to Project Folder"):
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"vocabulary_{timestamp}.csv"
-
-        # Fixed path
-        save_path = r"C:/Users/JQ547CD/OneDrive - EY/Desktop/Self/D33 Project/APP"
-        filepath = os.path.join(save_path, filename)
-
-        try:
-            df.to_csv(filepath, index=False)
-            st.success(f"✅ CSV saved to: `{filepath}`")
-        except Exception as e:
-            st.error(f"❌ Failed to save file: {e}")
+# Upload CSV or create new
+uploaded_file = st.file_uploader("Upload your prospects CSV", type=['csv'])
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
 else:
-    st.info("Add some words to begin.")
+    df = pd.DataFrame(columns=['Name', 'Email', 'Phone', 'Status', 'Notes'])
 
+# Show existing prospects
+st.subheader("Your Prospects")
+edited_df = st.experimental_data_editor(df, num_rows="dynamic")
+
+# Save changes in memory
+df = edited_df
+
+# Button to download updated CSV
+csv = df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Download Updated CSV",
+    data=csv,
+    file_name='my_prospects.csv',
+    mime='text/csv'
+)
+
+# Add new prospect form
+st.subheader("Add New Prospect")
+with st.form("add_prospect"):
+    name = st.text_input("Name")
+    email = st.text_input("Email")
+    phone = st.text_input("Phone")
+    status = st.selectbox("Status", ["New", "Contacted", "Interested", "Converted", "Lost"])
+    notes = st.text_area("Notes")
+    submitted = st.form_submit_button("Add Prospect")
+
+if submitted and name:
+    new_row = {'Name': name, 'Email': email, 'Phone': phone, 'Status': status, 'Notes': notes}
+    df = df.append(new_row, ignore_index=True)
+    st.success("Prospect added! Please download updated CSV.")
