@@ -40,7 +40,7 @@ if st.session_state.wordlist_unique:
         filename = f"vocabulary_{timestamp}.csv"
 
         # Fixed path
-        save_path = r"C:\Users\JQ547CD\OneDrive - EY\Desktop\Self\D33 Project\APP"
+        save_path = r"C:/Users/JQ547CD/OneDrive - EY/Desktop/Self/D33 Project/APP"
         filepath = os.path.join(save_path, filename)
 
         try:
