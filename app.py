@@ -1,56 +1,59 @@
 import streamlit as st
-from datetime import date
+import pandas as pd
+import os
 
-# App config
-st.set_page_config(
-    page_title="Takaful Prospect Tracker",
-    page_icon="🛡️",
-    layout="centered",
-)
+st.set_page_config(page_title="Takaful Prospect Tracker", layout="centered")
 
-# Initialize session data
-if "prospects" not in st.session_state:
-    st.session_state.prospects = []
+# 🔍 Choose data directory
+default_dir = os.getcwd()
+folder_path = st.text_input("📁 Enter Folder to Store Data", value=default_dir)
+csv_file = os.path.join(folder_path, "prospects.csv")
 
-# Sidebar Navigation
-page = st.sidebar.radio("📋 Navigate", ["Add Prospect", "Dashboard"])
+def load_data():
+    if os.path.exists(csv_file):
+        return pd.read_csv(csv_file)
+    else:
+        return pd.DataFrame(columns=["Name", "Date Met", "Plan", "Plan Price", "Status", "Commenced Date"])
 
-# ---------------------- PAGE: ADD PROSPECT ----------------------
-if page == "Add Prospect":
-    st.title("➕ Add New Prospect")
+def save_data(df):
+    os.makedirs(folder_path, exist_ok=True)
+    df.to_csv(csv_file, index=False)
 
-    with st.form("prospect_form", clear_on_submit=False):
-        name = st.text_input("👤 Prospect Name")
-        meeting_date = st.date_input("📅 Date Met", value=date.today())
-        plan = st.selectbox("📦 Plan Interested", ["Life Takaful", "Medical", "Education", "Investment", "Other"])
-        plan_price = st.number_input("💰 Plan Price (RM)", min_value=0.0, step=10.0)
-        status = st.selectbox("📌 Status", ["New", "Follow-up", "In Progress", "Closed - Success", "Closed - Lost"])
-        commence_date = st.date_input("🗓️ Plan Commencement Date (optional)", value=None)
+# 🧭 Sidebar Navigation
+menu = st.sidebar.radio("Menu", ["Add Prospect", "Dashboard"])
 
-        submitted = st.form_submit_button("💾 Save Prospect")
+# 📦 Load data
+df = load_data()
 
-        if submitted:
-            st.session_state.prospects.append({
-                "name": name,
-                "meeting_date": meeting_date,
-                "plan": plan,
-                "plan_price": plan_price,
-                "status": status,
-                "commence_date": commence_date if commence_date != date.today() else None,
-            })
-            st.success(f"Prospect '{name}' saved!")
+if menu == "Add Prospect":
+    st.title("📝 Add New Prospect")
 
-# ---------------------- PAGE: DASHBOARD ----------------------
-elif page == "Dashboard":
+    name = st.text_input("Name")
+    date_met = st.date_input("Date Met")
+    plan = st.text_input("Plan")
+    plan_price = st.number_input("Plan Price", min_value=0.0, step=0.01)
+    status = st.selectbox("Status", ["New", "Interested", "Signed", "Not Interested"])
+    commenced_date = st.date_input("Commenced Date (if any)", disabled=(status != "Signed"))
+
+    if st.button("Save Prospect"):
+        new_data = pd.DataFrame([{
+            "Name": name,
+            "Date Met": date_met,
+            "Plan": plan,
+            "Plan Price": plan_price,
+            "Status": status,
+            "Commenced Date": commenced_date if status == "Signed" else None
+        }])
+        df = pd.concat([df, new_data], ignore_index=True)
+        save_data(df)
+        st.success(f"Prospect '{name}' saved successfully!")
+
+elif menu == "Dashboard":
     st.title("📊 Prospect Dashboard")
 
-    if not st.session_state.prospects:
-        st.info("No prospects added yet. Go to 'Add Prospect' to start.")
+    if df.empty:
+        st.info("No prospects yet.")
     else:
-        st.write("### All Prospects")
-        for i, p in enumerate(st.session_state.prospects):
-            with st.expander(f"{p['name']} - {p['plan']} ({p['status']})"):
-                st.write(f"📅 Met on: {p['meeting_date']}")
-                st.write(f"💰 Plan Price: RM {p['plan_price']}")
-                st.write(f"🗓️ Start Date: {p['commence_date'] if p['commence_date'] else 'Not Set'}")
-                st.write(f"📌 Status: {p['status']}")
+        st.dataframe(df)
+        st.write("### 🔢 Total Prospects by Status")
+        st.bar_chart(df["Status"].value_counts())
